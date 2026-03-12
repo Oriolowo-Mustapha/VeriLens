@@ -7,6 +7,7 @@ import connectDB from './Config/db';
 import logger from './Utils/logger';
 import analysisRoutes from './Routes/analysis.routes';
 import authRoutes from './Routes/auth.routes';
+import adminRoutes from './Routes/admin.routes';
 
 dotenv.config();
 
@@ -24,6 +25,8 @@ app.use((req, res, next) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/analysis', analysisRoutes);
+
+app.use('/api/admin', adminRoutes);
 
 const PORT = process.env.PORT || 5000;
 

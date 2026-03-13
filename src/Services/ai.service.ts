@@ -19,17 +19,18 @@ export const analyzeTextWithAI = async (
 User Claim:
 "${claim}"
 
-News Sources:
+News Sources (each contains a 'credibility' field of high, medium, or low):
 ${JSON.stringify(articles, null, 2)}
 
 Task:
-1. Determine if the claim is supported by credible news sources.
-2. If multiple reputable sources confirm it → REAL (Confidence: 70-100).
-3. If sources contradict it → FALSE (Confidence: 0-30).
-4. If there are no reliable sources or evidence is insufficient → UNVERIFIED (Confidence: 40-60).
+1. Determine if the claim is supported by credible news sources. Prioritize 'high' credibility sources, then 'medium'. Treat 'low' credibility sources with skepticism (aggregators, social media, or blogs).
+2. If multiple high/medium credibility sources confirm it → REAL (Confidence: 70-100).
+3. If high/medium sources contradict it → FALSE (Confidence: 0-30).
+4. If there are only low credibility sources or evidence is insufficient → UNVERIFIED (Confidence: 40-60).
 
 IMPORTANT:
-- If NO credible news sources are found in the provided list, you MUST NOT label the claim as REAL.
+- If NO high or medium credibility news sources are found in the provided list, you MUST NOT label the claim as REAL.
+- A claim supported ONLY by low-credibility sources should be UNVERIFIED or SUSPICIOUS.
 - A claim without evidence is UNVERIFIED by default, unless you have strong internal knowledge that it is a known hoax (FALSE) or a known fact (REAL).
 - If you mark it as UNVERIFIED, the confidence score must be between 40 and 60.
 

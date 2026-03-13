@@ -69,9 +69,7 @@ export const runFullAnalysis = async (text: string, imageBuffer?: Buffer, userId
 
     const newsHeadlines = await searchNewsHeadlines(text);
 
-    const [gpt] = await Promise.all([
-      analyzeTextWithAI(text, newsHeadlines),
-    ]);
+    const gpt = await analyzeTextWithAI(text, newsHeadlines);
 
     let imageAnalysis: any = null;
     let reverseImage: any = null;
@@ -82,13 +80,13 @@ export const runFullAnalysis = async (text: string, imageBuffer?: Buffer, userId
       ]);
     }
 
-    const activeResults = [gpt].filter(r => r && typeof r.confidence === 'number' && !isNaN(r.confidence));
-    if (activeResults.length === 0) {
+    if (!gpt) {
       throw new Error('AI models are currently down or returned invalid results. Check your proxy key and model output.');
     }
-    const avgScore = activeResults.reduce((sum, r) => sum + r.confidence, 0) / activeResults.length;
-    const bestReason = activeResults[0].explanation || activeResults[0].reason || 'No explanation.';
-    const aiVerdict = activeResults[0].verdict;
+
+    const avgScore = gpt.confidence;
+    const bestReason = gpt.explanation || 'No explanation.';
+    const aiVerdict = gpt.verdict;
 
     const { finalScore, prediction } = aggregatePrediction(avgScore, imageAnalysis, { debunk: false, confirm: false }, aiVerdict);
 

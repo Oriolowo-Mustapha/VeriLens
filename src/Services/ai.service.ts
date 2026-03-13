@@ -7,63 +7,63 @@ const client = new OpenAI({
   baseURL: process.env.AICC_BASE_URL,
 });
 
+export interface AIAnalysisResult {
+  verdict: 'REAL' | 'FALSE' | 'SUSPICIOUS' | 'UNVERIFIED';
+  confidence: number;
+  explanation: string;
+  supporting_sources: string[];
+}
 
+export interface ImageAnalysisResult {
+  alignmentScore: number;
+  reason: string;
+}
+
+/**
+ * Analyze text claim against news articles using GPT-4o
+ */
 export const analyzeTextWithAI = async (
   claim: string,
   articles: any[],
   model: string = 'gpt-4o'
-) => {
+): Promise<AIAnalysisResult | null> => {
   try {
     const prompt = `
-You are an expert investigative journalist and professional fact-checker.
+You are a world-class investigative journalist and professional fact-checker specializing in digital misinformation.
 
-User Claim:
+USER CLAIM:
 "${claim}"
 
-News Sources (each contains a credibility field: high, medium, low):
-${JSON.stringify(articles, null, 2)}
+NEWS SOURCES (JSON):
+${JSON.stringify(articles.slice(0, 10), null, 2)}
 
-Your task is to verify the claim using the provided sources.
+TASK:
+Verify the accuracy of the "USER CLAIM" by cross-referencing it with the provided "NEWS SOURCES".
 
-FACT-CHECKING RULES:
+FACT-CHECKING PROTOCOL:
+1. SOURCE WEIGHTING:
+   - HIGH: Reuters, BBC, AP, CNN, The Guardian, NPR, etc. (Gold Standard)
+   - MEDIUM: Specialized media (ESPN, Politico) or regional reputable outlets.
+   - LOW: Social media (X, Facebook), blogs, or known tabloid aggregators.
 
-1. HIGH credibility sources (BBC, Reuters, AP, CNN) are the most reliable.
-2. MEDIUM credibility sources are somewhat reliable.
-3. LOW credibility sources (blogs, aggregators, tabloids, social media) are weak evidence.
+2. VERDICT CRITERIA:
+   - REAL: Confirmed by at least TWO HIGH-credibility sources OR one HIGH and multiple MEDIUM sources.
+   - FALSE: Explicitly debunked by HIGH/MEDIUM sources OR it's a "Breaking News" style claim (e.g., "Airport under attack", "President dead") that NO high-credibility source is reporting.
+   - SUSPICIOUS: Contradictory reports exist, or it's only reported by LOW-credibility sources without corroboration.
+   - UNVERIFIED: No relevant information found in the sources or broader context.
 
-DECISION LOGIC:
+3. CONFIDENCE SCORING:
+   - 90-100: Multiple independent high-credibility confirmations.
+   - 70-89: Strong evidence from reliable sources.
+   - 40-69: Mixed evidence or single-source reporting.
+   - 0-39: Heavy contradiction or known hoax.
 
-REAL
-- At least TWO high credibility sources confirm the claim.
-- Or one high credibility source and multiple medium sources confirm it.
-Confidence: 70–100.
-
-FALSE
-- High credibility sources contradict the claim.
-- OR the claim describes a major dramatic event (terror attack, hostage situation, airport takeover, war declaration, etc.) and NO high credibility source confirms it.
-Confidence: 70–100.
-
-SUSPICIOUS
-- Evidence is mixed.
-- Only medium credibility sources mention the claim.
-Confidence: 40–60.
-
-UNVERIFIED
-- No sources discuss the claim at all.
-Confidence: 30–50.
-
-IMPORTANT RULES:
-- Never mark REAL if only low credibility sources mention the claim.
-- If a dramatic claim lacks confirmation from major news organizations, classify it as FALSE.
-- Prefer evidence-based reasoning rather than speculation.
-
-Return ONLY valid JSON:
-
+OUTPUT FORMAT (Strict JSON):
 {
- "verdict": "REAL | FALSE | SUSPICIOUS | UNVERIFIED",
- "confidence": number,
- "reason": "Explain why the claim was classified this way.",
- "supporting_sources": []
+  "verdict": "REAL | FALSE | SUSPICIOUS | UNVERIFIED",
+  "confidence": number (0-100),
+  "explanation": "A concise, 3-4 sentence analytical breakdown. Mention specific sources by name.",
+  "supporting_sources": ["Source Name 1", "Source Name 2"]
 }
 `;
 
@@ -76,36 +76,47 @@ Return ONLY valid JSON:
       response_format: { type: 'json_object' }
     });
 
-    let content = completion.choices[0].message.content || '{}';
-    content = content.trim().replace(/^```json|^```|```$/g, '').trim();
+    const content = completion.choices[0].message.content || '{}';
+    const result: AIAnalysisResult = JSON.parse(content);
 
-    return JSON.parse(content);
+    // Basic Validation
+    if (!result.verdict || typeof result.confidence !== 'number') {
+      throw new Error('Invalid AI response structure');
+    }
 
+    return result;
   } catch (error: any) {
-    logger.error(`Fact-Check AI Error (${model}): ${error.message}`);
+    logger.error(`Text Analysis AI Error (${model}): ${error.message}`);
     return null;
   }
 };
-export const analyzeImageWithAI = async (text: string, imageUrl: string) => {
+
+/**
+ * Analyze image alignment with claim using GPT-4o Vision
+ */
+export const analyzeImageWithAI = async (
+  text: string, 
+  imageUrl: string
+): Promise<ImageAnalysisResult | null> => {
   try {
     const currentDate = new Date().toDateString();
     
     const forensicsContext = `
-      You are an expert digital forensics analyst and investigative journalist.
-      TODAY'S DATE: ${currentDate}.
-      Your task is to determine whether the provided image supports the news claim.
+      You are an expert digital forensics analyst.
+      DATE: ${currentDate}.
+      CLAIM: "${text}"
 
-      Evaluation steps:
-      1. Analyze the image content carefully.
-      2. Determine whether the image context matches the claim.
-      3. Check if the image appears reused, misleading, staged, or unrelated.
-      4. Identify signs of manipulation, editing, or AI generation.
-      5. Evaluate whether the visual evidence strengthens or weakens the credibility of the claim.
+      ANALYSIS STEPS:
+      1. IMAGE-TEXT ALIGNMENT: Does the image actually show what the claim says? (e.g., if claim says "Protest in Paris", does the image have Paris landmarks/French signs?)
+      2. CONTEXTUAL INTEGRITY: Is this a recycled image from a different event? Look for seasonal clues, fashion, or old technology.
+      3. TECHNICAL ANOMALIES: Look for AI artifacts (distorted hands, nonsensical text, blurred backgrounds) or Photoshop edits (inconsistent lighting, sharp edges).
 
-      Scoring rules:
-      - 0–40 → Image contradicts the claim
-      - 41–70 → Image is unclear or weak evidence
-      - 71–100 → Image strongly supports the claim
+      SCORING:
+      - 0–30: Image is a blatant mismatch, fake, or unrelated.
+      - 31–70: Image is generic or provides no specific proof.
+      - 71–100: Image provides strong, specific visual evidence for the claim.
+
+      OUTPUT JSON: {"alignmentScore": number, "reason": "string"}
     `;
 
     const completion = await client.chat.completions.create({
@@ -113,24 +124,29 @@ export const analyzeImageWithAI = async (text: string, imageUrl: string) => {
       messages: [
         {
           role: "system",
-          content: `${forensicsContext}\n\nReturn ONLY a valid JSON object: {\"alignmentScore\": number, \"reason\": \"Detailed analysis\"}`
+          content: forensicsContext
         },
         {
           role: "user",
           content: [
-            { type: "text", text: `Analyze this image in relation to the claim: "${text}"` },
+            { type: "text", text: `Analyze this image against the claim: "${text}"` },
             { type: "image_url", image_url: { url: imageUrl } },
           ],
         },
       ],
       response_format: { type: "json_object" }
     });
-    let content = completion.choices[0].message.content || '{}';
-    // Remove markdown code block markers if present
-    content = content.trim().replace(/^```json|^```|```$/g, '').trim();
-    return JSON.parse(content);
+
+    const content = completion.choices[0].message.content || '{}';
+    const result: ImageAnalysisResult = JSON.parse(content);
+
+    if (typeof result.alignmentScore !== 'number') {
+      throw new Error('Invalid Vision AI response');
+    }
+
+    return result;
   } catch (error: any) {
-    logger.error(`Expert Vision Analysis Error: ${error.message}`);
+    logger.error(`Vision Analysis AI Error: ${error.message}`);
     return null;
   }
 };

@@ -6,6 +6,11 @@ export interface IUser extends Document {
   firstName: string;
   lastName: string;
   role: 'user' | 'admin';
+  isVerified?: boolean;
+  verificationToken?: string;
+  refreshToken?: string;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   createdAt: Date;
 }
 

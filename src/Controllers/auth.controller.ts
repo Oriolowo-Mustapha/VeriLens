@@ -43,15 +43,16 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 export const verifyEmail = async (req: Request, res: Response): Promise<void> => {
   const { token } = req.query;
   try {
-    const user = await User.findOne({ verificationToken: token as string });
-    if (!user) {
+
+    const userDoc = await User.findOne({ verificationToken: token as string });
+    if (!userDoc) {
       res.status(400).json({ message: 'Invalid or expired verification token' });
       return;
     }
 
-    user.isVerified = true;
-    user.verificationToken = undefined;
-    await user.save();
+    (userDoc as any).isVerified = true;
+    (userDoc as any).verificationToken = undefined;
+    await userDoc.save();
 
     res.status(200).json({ message: 'Email verified successfully. You can now login.' });
   } catch (err: any) {
@@ -63,31 +64,31 @@ export const verifyEmail = async (req: Request, res: Response): Promise<void> =>
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
+    const userDoc = await User.findOne({ email });
+    if (!userDoc) {
       res.status(400).json({ message: 'Invalid credentials' });
       return;
     }
 
-    if (!user.isVerified) {
+    if (!(userDoc as any).isVerified) {
       res.status(401).json({ message: 'Please verify your email before logging in.' });
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, userDoc.password);
     if (!isMatch) {
       res.status(400).json({ message: 'Invalid credentials' });
       return;
     }
 
-    const { accessToken, refreshToken } = generateTokens(user);
-    user.refreshToken = refreshToken;
-    await user.save();
+    const { accessToken, refreshToken } = generateTokens(userDoc);
+    (userDoc as any).refreshToken = refreshToken;
+    await userDoc.save();
 
     res.json({ 
       accessToken, 
       refreshToken, 
-      user: { id: user.id, firstName: user.firstName, lastName: user.lastName, email, role: user.role } 
+      user: { id: userDoc.id, firstName: userDoc.firstName, lastName: userDoc.lastName, email, role: userDoc.role } 
     });
   } catch (err: any) {
     logger.error(`Login Error: ${err.message}`);
@@ -103,16 +104,16 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    const user = await User.findOne({ refreshToken: token });
-    if (!user) {
+    const userDoc = await User.findOne({ refreshToken: token });
+    if (!userDoc) {
       res.status(401).json({ message: 'Invalid refresh token' });
       return;
     }
 
     jwt.verify(token, REFRESH_SECRET);
-    const { accessToken, refreshToken } = generateTokens(user);
-    user.refreshToken = refreshToken;
-    await user.save();
+    const { accessToken, refreshToken } = generateTokens(userDoc);
+    (userDoc as any).refreshToken = refreshToken;
+    await userDoc.save();
 
     res.json({ accessToken, refreshToken });
   } catch (err: any) {
@@ -139,18 +140,18 @@ export const verifyToken = async (req: Request, res: Response): Promise<void> =>
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
+    const userDoc = await User.findOne({ email });
+    if (!userDoc) {
       res.status(404).json({ message: 'User not found' });
       return;
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
-    await user.save();
+    (userDoc as any).resetPasswordToken = resetToken;
+    (userDoc as any).resetPasswordExpires = new Date(Date.now() + 3600000); // 1 hour
+    await userDoc.save();
 
-    await sendPasswordResetEmail(email, resetToken, user.firstName);
+    await sendPasswordResetEmail(email, resetToken, userDoc.firstName);
 
     res.json({ message: 'Password reset link sent to your email.' });
   } catch (err: any) {
@@ -162,20 +163,20 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   const { token, newPassword } = req.body;
   try {
-    const user = await User.findOne({
+    const userDoc = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: new Date() }
     });
 
-    if (!user) {
+    if (!userDoc) {
       res.status(400).json({ message: 'Invalid or expired reset token' });
       return;
     }
 
-    user.password = newPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    await user.save();
+    userDoc.password = newPassword;
+    (userDoc as any).resetPasswordToken = undefined;
+    (userDoc as any).resetPasswordExpires = undefined;
+    await userDoc.save();
 
     res.json({ message: 'Password reset successful. You can now login.' });
   } catch (err: any) {

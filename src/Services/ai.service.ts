@@ -14,51 +14,78 @@ export const analyzeTextWithAI = async (
   model: string = 'gpt-4o'
 ) => {
   try {
-    const prompt = `You are a professional fact-checking AI.
+    const prompt = `
+You are an expert investigative journalist and professional fact-checker.
 
 User Claim:
 "${claim}"
 
-News Sources (each contains a 'credibility' field of high, medium, or low):
+News Sources (each contains a credibility field: high, medium, low):
 ${JSON.stringify(articles, null, 2)}
 
-Task:
-1. Determine if the claim is supported by credible news sources. Prioritize 'high' credibility sources, then 'medium'. Treat 'low' credibility sources with skepticism (aggregators, social media, or blogs).
-2. If multiple high/medium credibility sources confirm it → REAL (Confidence: 70-100).
-3. If high/medium sources contradict it → FALSE (Confidence: 0-30).
-4. If there are only low credibility sources or evidence is insufficient → UNVERIFIED (Confidence: 40-60).
+Your task is to verify the claim using the provided sources.
 
-IMPORTANT:
-- If NO high or medium credibility news sources are found in the provided list, you MUST NOT label the claim as REAL.
-- A claim supported ONLY by low-credibility sources should be UNVERIFIED or SUSPICIOUS.
-- A claim without evidence is UNVERIFIED by default, unless you have strong internal knowledge that it is a known hoax (FALSE) or a known fact (REAL).
-- If you mark it as UNVERIFIED, the confidence score must be between 40 and 60.
+FACT-CHECKING RULES:
 
-Output JSON:
+1. HIGH credibility sources (BBC, Reuters, AP, CNN) are the most reliable.
+2. MEDIUM credibility sources are somewhat reliable.
+3. LOW credibility sources (blogs, aggregators, tabloids, social media) are weak evidence.
+
+DECISION LOGIC:
+
+REAL
+- At least TWO high credibility sources confirm the claim.
+- Or one high credibility source and multiple medium sources confirm it.
+Confidence: 70–100.
+
+FALSE
+- High credibility sources contradict the claim.
+- OR the claim describes a major dramatic event (terror attack, hostage situation, airport takeover, war declaration, etc.) and NO high credibility source confirms it.
+Confidence: 70–100.
+
+SUSPICIOUS
+- Evidence is mixed.
+- Only medium credibility sources mention the claim.
+Confidence: 40–60.
+
+UNVERIFIED
+- No sources discuss the claim at all.
+Confidence: 30–50.
+
+IMPORTANT RULES:
+- Never mark REAL if only low credibility sources mention the claim.
+- If a dramatic claim lacks confirmation from major news organizations, classify it as FALSE.
+- Prefer evidence-based reasoning rather than speculation.
+
+Return ONLY valid JSON:
+
 {
- "verdict": "REAL | FALSE | UNVERIFIED",
- "confidence": 0-100,
- "explanation": "Provide a detailed reason for your verdict, specifically mentioning the presence or absence of news sources.",
+ "verdict": "REAL | FALSE | SUSPICIOUS | UNVERIFIED",
+ "confidence": number,
+ "reason": "Explain why the claim was classified this way.",
  "supporting_sources": []
-}`;
+}
+`;
 
     const completion = await client.chat.completions.create({
-      model: model,
+      model,
       messages: [
-        { role: 'system', content: 'You are a professional fact-checking AI.' },
+        { role: 'system', content: 'You are a professional investigative journalist and fact-checker.' },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' }
     });
+
     let content = completion.choices[0].message.content || '{}';
     content = content.trim().replace(/^```json|^```|```$/g, '').trim();
+
     return JSON.parse(content);
+
   } catch (error: any) {
     logger.error(`Fact-Check AI Error (${model}): ${error.message}`);
     return null;
   }
 };
-
 export const analyzeImageWithAI = async (text: string, imageUrl: string) => {
   try {
     const currentDate = new Date().toDateString();

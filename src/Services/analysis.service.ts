@@ -112,8 +112,8 @@ export const runFullAnalysis = async (text: string, imageBuffer?: Buffer, userId
           imageAnalysis: imageAnalysis?.reason || (imageUrl ? 'Visual context analyzed.' : 'No image.')
         }
       },
-      explanation: `AI Consensus: ${prediction} (${Math.round(finalScore)}% credibility). ` +
-        (reverseImage && reverseImage.found ? ` Reverse image search: ${reverseImage.context || 'Image found elsewhere.'}` : '')
+      explanation: `AI Consensus: ${prediction} (${Math.round(finalScore)}% credibility).\nReason: ${bestReason}` +
+        (reverseImage && reverseImage.found ? `\nReverse image search: ${reverseImage.context || 'Image found elsewhere.'}` : '')
     });
 
     await record.save();

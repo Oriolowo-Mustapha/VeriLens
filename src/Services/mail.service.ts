@@ -9,7 +9,7 @@ const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 export const sendVerificationEmail = async (email: string, token: string, firstName: string) => {
   const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-  const verificationLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
+  const verificationLink = `${process.env.CLIENT_URL || 'https://verilens-frontend.pxxl.click'}/verify-email?token=${token}`;
 
   sendSmtpEmail.subject = "Verify Your Account - VeriLENS";
   sendSmtpEmail.htmlContent = `
@@ -36,7 +36,7 @@ export const sendVerificationEmail = async (email: string, token: string, firstN
 
 export const sendPasswordResetEmail = async (email: string, token: string, firstName: string) => {
   const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-  const resetLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+  const resetLink = `${process.env.CLIENT_URL || 'https://verilens-frontend.pxxl.click'}/reset-password?token=${token}`;
 
   sendSmtpEmail.subject = "Reset Your Password - VeriLENS";
   sendSmtpEmail.htmlContent = `

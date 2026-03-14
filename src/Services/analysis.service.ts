@@ -39,10 +39,9 @@ function aggregatePrediction(avgScore: number, imageAnalysis: any, official: { d
     prediction = 'Real';
     finalScore = Math.max(finalScore, 95);
   } else {
-    // Override based on AI verdict string if available
     if (aiVerdict === 'UNVERIFIED') {
       prediction = 'Suspicious';
-      finalScore = Math.min(finalScore, 64); // Ensure it doesn't cross into 'Real'
+      finalScore = Math.min(finalScore, 64)
     } else if (aiVerdict === 'FALSE') {
       prediction = 'Fake';
       finalScore = Math.min(finalScore, 29);

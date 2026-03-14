@@ -41,28 +41,25 @@ TASK:
 Verify the accuracy of the "USER CLAIM" by cross-referencing it with the provided "NEWS SOURCES".
 
 FACT-CHECKING PROTOCOL:
-1. SOURCE WEIGHTING:
-   - HIGH: Reuters, BBC, AP, CNN, The Guardian, NPR, etc. (Gold Standard)
-   - MEDIUM: Specialized media (ESPN, Politico) or regional reputable outlets.
-   - LOW: Social media (X, Facebook), blogs, or known tabloid aggregators.
+1. AUTONOMOUS SOURCE JUDGMENT: You are responsible for identifying the credibility of each news source yourself based on its name and reputation. High-credibility sources should be prioritized, but you must also weigh smaller or niche sources fairly.
 
 2. VERDICT CRITERIA:
-   - REAL: Confirmed by at least TWO HIGH-credibility sources OR one HIGH and multiple MEDIUM sources.
-   - FALSE: Explicitly debunked by HIGH/MEDIUM sources OR it's a "Breaking News" style claim (e.g., "Airport under attack", "President dead") that NO high-credibility source is reporting.
-   - SUSPICIOUS: Contradictory reports exist, or it's only reported by LOW-credibility sources without corroboration.
-   - UNVERIFIED: No relevant information found in the sources or broader context.
+   - REAL: The claim is supported by high-credibility news sources. OR, if high-credibility sources are not present, the claim is supported by a large number of lower-credibility sources (consensus is strong).
+   - FALSE: The claim is explicitly debunked by news sources. OR, if NO news sources discuss the claim at all, or if the claim contradicts what all news sources are reporting, it is FALSE.
+   - SUSPICIOUS: Contradictory reports exist across sources.
+   - UNVERIFIED: Use only if the evidence is truly ambiguous or inconclusive.
 
 3. CONFIDENCE SCORING:
    - 90-100: Multiple independent high-credibility confirmations.
-   - 70-89: Strong evidence from reliable sources.
+   - 70-89: Strong evidence from multiple sources or a solid consensus.
    - 40-69: Mixed evidence or single-source reporting.
-   - 0-39: Heavy contradiction or known hoax.
+   - 0-39: Heavy contradiction or a "silence" where reporting would be expected.
 
 OUTPUT FORMAT (Strict JSON):
 {
   "verdict": "REAL | FALSE | SUSPICIOUS | UNVERIFIED",
   "confidence": number (0-100),
-  "explanation": "A concise, 3-4 sentence analytical breakdown. Mention specific sources by name.",
+  "explanation": "A concise, 3-4 sentence analytical breakdown. Discuss the quality and quantity of the sources and explain why the verdict was chosen.",
   "supporting_sources": ["Source Name 1", "Source Name 2"]
 }
 `;

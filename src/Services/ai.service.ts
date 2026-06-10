@@ -25,10 +25,9 @@ export interface ImageAnalysisResult {
 export const analyzeTextWithAI = async (
   claim: string,
   articles: any[],
-  model: string = 'gpt-4o'
+  models: string[] = ['openai/gpt-4o-mini', 'google/gemini-2.5-flash']
 ): Promise<AIAnalysisResult | null> => {
-  try {
-    const prompt = `
+  const prompt = `
 You are a world-class investigative journalist and professional fact-checker specializing in digital misinformation.
 
 USER CLAIM:
@@ -64,28 +63,33 @@ OUTPUT FORMAT (Strict JSON):
 }
 `;
 
-    const completion = await client.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: 'You are a professional investigative journalist and fact-checker.' },
-        { role: 'user', content: prompt }
-      ],
-      response_format: { type: 'json_object' }
-    });
+  for (const model of models) {
+    try {
+      const completion = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: 'You are a professional investigative journalist and fact-checker.' },
+          { role: 'user', content: prompt }
+        ],
+        response_format: { type: 'json_object' }
+      });
 
-    const content = completion.choices[0].message.content || '{}';
-    const result: AIAnalysisResult = JSON.parse(content);
+      const content = completion.choices[0].message.content || '{}';
+      const result: AIAnalysisResult = JSON.parse(content);
 
-    // Basic Validation
-    if (!result.verdict || typeof result.confidence !== 'number') {
-      throw new Error('Invalid AI response structure');
+      // Basic Validation
+      if (!result.verdict || typeof result.confidence !== 'number') {
+        throw new Error('Invalid AI response structure');
+      }
+
+      return result;
+    } catch (error: any) {
+      logger.warn(`Text Analysis AI Error (${model}): ${error.message}. Retrying if fallback available...`);
     }
-
-    return result;
-  } catch (error: any) {
-    logger.error(`Text Analysis AI Error (${model}): ${error.message}`);
-    return null;
   }
+  
+  logger.error('All text analysis models failed.');
+  return null;
 };
 
 /**
@@ -93,57 +97,62 @@ OUTPUT FORMAT (Strict JSON):
  */
 export const analyzeImageWithAI = async (
   text: string, 
-  imageUrl: string
+  imageUrl: string,
+  models: string[] = ['openai/gpt-4o-mini', 'google/gemini-2.5-flash']
 ): Promise<ImageAnalysisResult | null> => {
-  try {
-    const currentDate = new Date().toDateString();
-    
-    const forensicsContext = `
-      You are an expert digital forensics analyst.
-      DATE: ${currentDate}.
-      CLAIM: "${text}"
+  const currentDate = new Date().toDateString();
+  
+  const forensicsContext = `
+    You are an expert digital forensics analyst.
+    DATE: ${currentDate}.
+    CLAIM: "${text}"
 
-      ANALYSIS STEPS:
-      1. IMAGE-TEXT ALIGNMENT: Does the image actually show what the claim says? (e.g., if claim says "Protest in Paris", does the image have Paris landmarks/French signs?)
-      2. CONTEXTUAL INTEGRITY: Is this a recycled image from a different event? Look for seasonal clues, fashion, or old technology.
-      3. TECHNICAL ANOMALIES: Look for AI artifacts (distorted hands, nonsensical text, blurred backgrounds) or Photoshop edits (inconsistent lighting, sharp edges).
+    ANALYSIS STEPS:
+    1. IMAGE-TEXT ALIGNMENT: Does the image actually show what the claim says? (e.g., if claim says "Protest in Paris", does the image have Paris landmarks/French signs?)
+    2. CONTEXTUAL INTEGRITY: Is this a recycled image from a different event? Look for seasonal clues, fashion, or old technology.
+    3. TECHNICAL ANOMALIES: Look for AI artifacts (distorted hands, nonsensical text, blurred backgrounds) or Photoshop edits (inconsistent lighting, sharp edges).
 
-      SCORING:
-      - 0–30: Image is a blatant mismatch, fake, or unrelated.
-      - 31–70: Image is generic or provides no specific proof.
-      - 71–100: Image provides strong, specific visual evidence for the claim.
+    SCORING:
+    - 0–30: Image is a blatant mismatch, fake, or unrelated.
+    - 31–70: Image is generic or provides no specific proof.
+    - 71–100: Image provides strong, specific visual evidence for the claim.
 
-      OUTPUT JSON: {"alignmentScore": number, "reason": "string"}
-    `;
+    OUTPUT JSON: {"alignmentScore": number, "reason": "string"}
+  `;
 
-    const completion = await client.chat.completions.create({
-      model: "gpt-4o", 
-      messages: [
-        {
-          role: "system",
-          content: forensicsContext
-        },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: `Analyze this image against the claim: "${text}"` },
-            { type: "image_url", image_url: { url: imageUrl } },
-          ],
-        },
-      ],
-      response_format: { type: "json_object" }
-    });
+  for (const model of models) {
+    try {
+      const completion = await client.chat.completions.create({
+        model, 
+        messages: [
+          {
+            role: "system",
+            content: forensicsContext
+          },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: `Analyze this image against the claim: "${text}"` },
+              { type: "image_url", image_url: { url: imageUrl } },
+            ],
+          },
+        ],
+        response_format: { type: "json_object" }
+      });
 
-    const content = completion.choices[0].message.content || '{}';
-    const result: ImageAnalysisResult = JSON.parse(content);
+      const content = completion.choices[0].message.content || '{}';
+      const result: ImageAnalysisResult = JSON.parse(content);
 
-    if (typeof result.alignmentScore !== 'number') {
-      throw new Error('Invalid Vision AI response');
+      if (typeof result.alignmentScore !== 'number') {
+        throw new Error('Invalid Vision AI response');
+      }
+
+      return result;
+    } catch (error: any) {
+      logger.warn(`Vision Analysis AI Error (${model}): ${error.message}. Retrying if fallback available...`);
     }
-
-    return result;
-  } catch (error: any) {
-    logger.error(`Vision Analysis AI Error: ${error.message}`);
-    return null;
   }
+  
+  logger.error('All vision analysis models failed.');
+  return null;
 };
